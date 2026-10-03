@@ -32,7 +32,7 @@ except ImportError:
 USERS_FILE = os.path.join(os.path.expanduser("~"), ".eclipse_users.json")
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".eclipse_config.json")
 TIMEOUT = 5
-EMAIL_PROVIDERS = ["gmail.com", "outlook.com", "yahoo.fr", "proton.me", "icloud.com"]
+EMAIL_PROVIDERS = ["gmail.com", "outlook.com", "yahoo.fr", "proton.me", "icloud.com", "hotmail.com", "live.fr"]
 
 class EclipseOSINT:
     def __init__(self):
@@ -72,7 +72,7 @@ class EclipseOSINT:
         """
         self.console.print(Text(b, style=self.theme, justify="center"))
         status = f"Agent actif: {self.current_user}" if self.current_user else "Accès restreint"
-        self.console.print(Panel(f"[{self.text_theme}]v2.5[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
+        self.console.print(Panel(f"[{self.text_theme}]v3.0[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
         print("\n")
 
     def error(self, msg): self.console.print(f"[{self.theme}][!][/] {msg}")
@@ -307,7 +307,36 @@ class EclipseOSINT:
             else: self.error("Aucune archive trouvée.")
         except Exception as e: self.error(str(e))
 
-    # ================= 4. GÉNÉRATEURS & CRYPTO =================
+    # ================= 4. GÉNÉRATEURS & CRYPTO (REMIS DE LA V1) =================
+    def module_password_gen(self):
+        length = IntPrompt.ask(f"[{self.theme}]Longueur du mot de passe (défaut 16)[/]", default=16)
+        length = max(4, min(length, 128))
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+?"
+        while True:
+            p = "".join(secrets.choice(alphabet) for _ in range(length))
+            if (any(c.islower() for c in p) and any(c.isupper() for c in p) and any(c.isdigit() for c in p)):
+                break
+        self.success(f"Mot de passe généré : [bold white]{p}[/]")
+
+    def module_email_gen(self):
+        size = random.randint(8, 12)
+        letters, chars = string.ascii_lowercase, string.ascii_lowercase + string.digits
+        local = secrets.choice(letters) + "".join(secrets.choice(chars) for _ in range(size - 1))
+        domain = random.choice(EMAIL_PROVIDERS)
+        self.success(f"Email fictif : [bold white]{local}@{domain}[/]")
+
+    def module_pseudo_gen(self):
+        adj = ["Dark", "Silent", "Crimson", "Shadow", "Toxic", "Frozen", "Cyber", "Ghost", "Neon"]
+        noun = ["Wolf", "Demon", "Tiger", "Phantom", "Raven", "Viper", "Hunter", "Ninja", "Reaper"]
+        a, b, num = random.choice(adj), random.choice(noun), random.randint(0, 999)
+        p = f"{a}{b}{num}"
+        self.success(f"Pseudo généré : [bold white]{p}[/]")
+
+    def module_pin_gen(self):
+        length = IntPrompt.ask(f"[{self.theme}]Nombre de chiffres (défaut 4)[/]", default=4)
+        pin = "".join(secrets.choice(string.digits) for _ in range(length))
+        self.success(f"Code PIN généré : [bold white]{pin}[/]")
+
     def module_fake_identity(self):
         fn = ["Lucas", "Emma", "Hugo", "Léa", "Noah", "Chloé"]
         ln = ["Martin", "Bernard", "Dubois", "Petit", "Durand"]
@@ -397,6 +426,10 @@ class EclipseOSINT:
                     ("Wayback Machine", self.module_wayback)
                 ]),
                 ("4", "🎲 Générateurs & Crypto", [
+                    ("Générateur de Mot de Passe", self.module_password_gen),
+                    ("Générateur d'Email Fictif", self.module_email_gen),
+                    ("Générateur de Pseudo", self.module_pseudo_gen),
+                    ("Générateur de Code PIN", self.module_pin_gen),
                     ("Identité Fictive (Red Dead Money)", self.module_fake_identity),
                     ("Hash & Base64 Tools", self.module_crypto_tools),
                     ("Décodeur JWT", self.module_jwt_decode)
