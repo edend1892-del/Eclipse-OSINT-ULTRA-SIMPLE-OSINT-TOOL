@@ -10,7 +10,7 @@ import hmac
 from urllib.parse import quote, urlparse
 from concurrent.futures import ThreadPoolExecutor
 
-# --- SYSTÈME D'AUTO-INSTALLATION (Utile uniquement pour la version .py) ---
+# --- SYSTÈME D'AUTO-INSTALLATION ---
 try:
     import requests
     import phonenumbers
@@ -27,7 +27,7 @@ except ImportError:
     os.system(f"{sys.executable} -m pip install requests rich phonenumbers pillow")
     print("[+] Installation terminée avec succès ! Relance le script.")
     sys.exit(0)
-# -------------------------------------------------------------------------
+# -----------------------------------
 
 USERS_FILE = os.path.join(os.path.expanduser("~"), ".eclipse_users.json")
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".eclipse_config.json")
@@ -134,6 +134,21 @@ class EclipseOSINT:
             t.add_row("IP / Type", f"{r.get('ip')} ({r.get('type')})")
             t.add_row("Localisation", f"{r.get('city')}, {r.get('region')}, {r.get('country')}")
             t.add_row("ISP / Org", f"{r.get('connection', {}).get('isp')} / {r.get('connection', {}).get('org')}")
+            self.console.print(t)
+        except Exception as e: self.error(str(e))
+
+    def module_minecraft_osint(self):
+        ip = Prompt.ask(f"[{self.theme}]IP du serveur Minecraft[/]")
+        try:
+            r = self.session.get(f"https://api.mcsrvstat.us/2/{ip}", timeout=TIMEOUT).json()
+            if not r.get("online"): return self.error("Serveur hors ligne ou introuvable.")
+            t = Table(title=f"Minecraft OSINT : {ip}", style=self.theme)
+            t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+            t.add_row("Version", r.get("version", "Inconnue"))
+            t.add_row("Joueurs", f"{r.get('players', {}).get('online', 0)} / {r.get('players', {}).get('max', 0)}")
+            motd = r.get("motd", {}).get("clean", [""])
+            t.add_row("MOTD", "\n".join(motd)[:100])
+            t.add_row("Logiciel/Modpack", r.get("software", "Vanilla/Inconnu"))
             self.console.print(t)
         except Exception as e: self.error(str(e))
 
@@ -365,6 +380,7 @@ class EclipseOSINT:
             menus = [
                 ("1", "🌐 OSINT & Réseau", [
                     ("IP Intelligence", self.module_ip_info),
+                    ("Minecraft Server OSINT", self.module_minecraft_osint),
                     ("Scanner de Ports", self.module_port_scanner),
                     ("Recherche de Sous-domaines", self.module_subdomains),
                     ("Phone OSINT", self.module_phone_osint)
