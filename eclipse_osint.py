@@ -4,7 +4,7 @@
 ECLIPSE OSINT - Powered by Red Dead Money Core
 """
 
-import os, sys, json, time, socket, base64, hashlib, secrets, string, random, re
+import os, sys, json, time, socket, base64, hashlib, secrets, string, random, re, subprocess
 from datetime import datetime, timezone
 import hmac
 from urllib.parse import quote, urlparse
@@ -21,9 +21,12 @@ try:
     from rich.progress import Progress
     from rich.prompt import Prompt, IntPrompt
     from rich.text import Text
+    from PIL import Image
+    from PIL.ExifTags import TAGS
 except ImportError:
     print("[!] Dépendances manquantes détectées.")
     print("[*] Installation automatique en cours, patiente quelques secondes...")
+    import os, sys
     os.system(f"{sys.executable} -m pip install requests rich phonenumbers pillow")
     print("[+] Installation terminée avec succès ! Relance le script.")
     sys.exit(0)
@@ -72,7 +75,7 @@ class EclipseOSINT:
         """
         self.console.print(Text(b, style=self.theme, justify="center"))
         status = f"Agent actif: {self.current_user}" if self.current_user else "Accès restreint"
-        self.console.print(Panel(f"[{self.text_theme}]v3.0[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
+        self.console.print(Panel(f"[{self.text_theme}]v4.5 (Tiger Full Arsenal)[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
         print("\n")
 
     def error(self, msg): self.console.print(f"[{self.theme}][!][/] {msg}")
@@ -157,7 +160,6 @@ class EclipseOSINT:
         ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 3306, 3389, 8080, 25565]
         t = Table(title=f"Port Scanner (Red Dead Money) : {ip}", style=self.theme)
         t.add_column("Port", justify="center", style=self.theme); t.add_column("État", justify="center")
-        
         self.console.print(f"[{self.dim_theme}]Scan en cours des ports critiques...[/]")
         for port in ports:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -191,6 +193,19 @@ class EclipseOSINT:
             t.add_row("Format International", phonenumbers.format_number(p, phonenumbers.PhoneNumberFormat.INTERNATIONAL))
             t.add_row("Pays", geocoder.description_for_number(p, "fr"))
             t.add_row("Opérateur", carrier.name_for_number(p, "fr") or "Inconnu/Fixe")
+            self.console.print(t)
+        except Exception as e: self.error(str(e))
+
+    def module_mac_lookup(self):
+        mac = Prompt.ask(f"[{self.theme}]Adresse MAC ou Préfixe (ex: 00:1A:2B)[/]")
+        try:
+            r = self.session.get(f"https://api.macvendors.com/{quote(mac)}", timeout=TIMEOUT)
+            t = Table(title=f"MAC Vendor Lookup : {mac}", style=self.theme)
+            t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+            if r.status_code == 200:
+                t.add_row("Constructeur / Marque", f"[bold green]{r.text}[/]")
+            else:
+                t.add_row("Résultat", "[bold red]Constructeur inconnu ou format invalide[/]")
             self.console.print(t)
         except Exception as e: self.error(str(e))
 
@@ -233,6 +248,26 @@ class EclipseOSINT:
         t.add_row("Worker / Process", f"{(int(s) >> 17) & 31} / {(int(s) >> 12) & 31}")
         self.console.print(t)
 
+    def module_discord_invite(self):
+        code = Prompt.ask(f"[{self.theme}]Code ou Lien d'invitation Discord[/]")
+        code = code.split("/")[-1].strip()
+        try:
+            r = self.session.get(f"https://discord.com/api/v9/invites/{code}?with_counts=true", timeout=TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                guild = data.get("guild", {})
+                t = Table(title=f"Discord Invite Recon : {code}", style=self.theme)
+                t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+                t.add_row("Nom du Serveur", guild.get("name", "N/A"))
+                t.add_row("ID du Serveur", guild.get("id", "N/A"))
+                t.add_row("Membres Totaux", str(data.get("approximate_member_count", "N/A")))
+                t.add_row("Membres en Ligne", str(data.get("approximate_presence_count", "N/A")))
+                t.add_row("Description", guild.get("description", "Aucune"))
+                self.console.print(t)
+            else:
+                self.error("Invitation invalide, expirée ou introuvable.")
+        except Exception as e: self.error(str(e))
+
     def module_roblox_tracker(self):
         u = Prompt.ask(f"[{self.theme}]Pseudo Roblox[/]")
         try:
@@ -248,6 +283,102 @@ class EclipseOSINT:
             t.add_row("Créé le", date_create)
             t.add_row("Banni", "Oui" if infos.get("isBanned") else "Non")
             self.console.print(t)
+        except Exception as e: self.error(str(e))
+
+    def module_minecraft_names(self):
+        u = Prompt.ask(f"[{self.theme}]Pseudo Minecraft (actuel ou ancien)[/]")
+        try:
+            r = self.session.get(f"https://api.mojang.com/users/profiles/minecraft/{u}", timeout=TIMEOUT)
+            if r.status_code != 200: return self.error("Joueur introuvable.")
+            data = r.json()
+            uuid = data.get("id")
+            current_name = data.get("name")
+            
+            r2 = self.session.get(f"https://api.mojang.com/user/profiles/{uuid}/names", timeout=TIMEOUT)
+            names = r2.json() if r2.status_code == 200 else [{"name": current_name}]
+            
+            t = Table(title=f"Historique Pseudos Minecraft : {current_name}", style=self.theme)
+            t.add_column("Pseudo", style=self.theme); t.add_column("Date de changement", style=self.text_theme)
+            for entry in names:
+                changed_at = "Pseudo d'origine"
+                if "changedToAt" in entry:
+                    ts = entry["changedToAt"] / 1000
+                    changed_at = datetime.fromtimestamp(ts, timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+                t.add_row(entry.get("name"), changed_at)
+            self.console.print(t)
+        except Exception as e: self.error(str(e))
+
+    def module_steam_checker(self):
+        u = Prompt.ask(f"[{self.theme}]SteamID64 ou Custom ID (ex: gaben)[/]")
+        url = f"https://steamcommunity.com/id/{u}/?xml=1" if not u.isdigit() else f"https://steamcommunity.com/profiles/{u}/?xml=1"
+        try:
+            r = self.session.get(url, timeout=TIMEOUT)
+            if r.status_code == 200 and "<profile>" in r.text:
+                t = Table(title=f"Steam OSINT & VAC Checker : {u}", style=self.theme)
+                t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+                
+                s_name = re.search(r'<steamID><!\[CDATA\[(.*?)\]\]></steamID>', r.text)
+                if s_name: t.add_row("Nom du Profil", s_name.group(1))
+                
+                s_id64 = re.search(r'<steamID64>(.*?)</steamID64>', r.text)
+                if s_id64: t.add_row("SteamID64", s_id64.group(1))
+                
+                state = re.search(r'<onlineState><!\[CDATA\[(.*?)\]\]></onlineState>', r.text)
+                if state: t.add_row("État en ligne", state.group(1))
+                
+                privacy = re.search(r'<privacyState><!\[CDATA\[(.*?)\]\]></privacyState>', r.text)
+                if privacy: t.add_row("Visibilité", privacy.group(1))
+                
+                vac = re.search(r'<vacBanned>(.*?)</vacBanned>', r.text)
+                if vac:
+                    banned = vac.group(1) == "1"
+                    t.add_row("VAC Banned", "[bold red]OUI (Banni pour triche)[/]" if banned else "[bold green]NON (Propre)[/]")
+                
+                self.console.print(t)
+            else:
+                self.error("Profil Steam introuvable ou privé.")
+        except Exception as e: self.error(str(e))
+
+    def module_gta_tracker(self):
+        u = Prompt.ask(f"[{self.theme}]Pseudo Rockstar / FiveM[/]")
+        self.console.print(f"[{self.dim_theme}]Interrogation des bases de données Rockstar...[/]")
+        url = f"https://socialclub.rockstargames.com/member/{quote(u)}"
+        try:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            r = requests.get(url, headers=headers, timeout=TIMEOUT)
+            if r.status_code == 200 and "Page Not Found" not in r.text:
+                t = Table(title=f"GTA Online & RP Tracker (Deep Scan) : {u}", style=self.theme)
+                t.add_column("Donnée extraite", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+                t.add_row("Statut du Compte", "[bold green]Existant & Actif[/]")
+                t.add_row("URL Rockstar", url)
+                avatar = re.search(r'<meta property="og:image" content="(.*?)"', r.text)
+                if avatar and "rockstargames.com" in avatar.group(1):
+                    t.add_row("Avatar (Photo URL)", avatar.group(1))
+                t.add_row("Niveau (GTA Online)", "[bold yellow]Verrouillé par l'API Rockstar (Nécessite Auth Token)[/]")
+                t.add_row("Info GTA RP (FiveM)", "Les niveaux RP sont hébergés sur les bases MySQL privées des serveurs.")
+                self.console.print(t)
+            else:
+                self.error("Cible introuvable ou profil totalement supprimé.")
+        except Exception as e:
+            self.error(f"Erreur de connexion : {str(e)}")
+
+    def module_webhook_analyzer(self):
+        url = Prompt.ask(f"[{self.theme}]URL du Webhook Discord[/]")
+        try:
+            r = self.session.get(url, timeout=TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                t = Table(title="Analyse de Webhook Discord", style=self.theme)
+                t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+                t.add_row("Nom du Webhook", data.get("name", "N/A"))
+                t.add_row("ID du Serveur (Guild)", data.get("guild_id", "N/A"))
+                t.add_row("ID du Salon (Channel)", data.get("channel_id", "N/A"))
+                user = data.get("user", {})
+                if user:
+                    t.add_row("Créé par", f"{user.get('username')}#{user.get('discriminator')} (ID: {user.get('id')})")
+                self.console.print(t)
+            else:
+                self.error("Webhook invalide ou supprimé.")
         except Exception as e: self.error(str(e))
 
     def module_breach_checker(self):
@@ -307,21 +438,86 @@ class EclipseOSINT:
             else: self.error("Aucune archive trouvée.")
         except Exception as e: self.error(str(e))
 
-    # ================= 4. GÉNÉRATEURS & CRYPTO (REMIS DE LA V1) =================
+    def module_google_dorks(self):
+        cible = Prompt.ask(f"[{self.theme}]Nom de domaine ou Cible (ex: tesla.com)[/]")
+        t = Table(title=f"Générateur Google Dorks : {cible}", style=self.theme)
+        t.add_column("Type de Fichiers ciblé", style=self.theme); t.add_column("Requête Google (à copier)", style="cyan")
+        t.add_row("Fichiers PDF / Docs", f"site:{cible} ext:pdf OR ext:doc OR ext:txt")
+        t.add_row("Bases de données SQL", f"site:{cible} intext:\"sql dump\" OR ext:sql")
+        t.add_row("Mots de passe exposés", f"site:{cible} intext:\"password\" OR intext:\"mot de passe\"")
+        t.add_row("Dossiers ouverts / Index", f"site:{cible} intitle:\"index of\"")
+        self.console.print(t)
+
+    def module_github_radar(self):
+        u = Prompt.ask(f"[{self.theme}]Pseudo GitHub du développeur[/]")
+        try:
+            r = self.session.get(f"https://api.github.com/users/{u}", timeout=TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                t = Table(title=f"GitHub Developer Radar : {u}", style=self.theme)
+                t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+                t.add_row("Nom complet", data.get("name", "N/A"))
+                t.add_row("Bio", data.get("bio", "N/A"))
+                t.add_row("Entreprise", data.get("company", "N/A"))
+                t.add_row("Localisation", data.get("location", "N/A"))
+                t.add_row("Dépôts publics", str(data.get("public_repos", 0)))
+                t.add_row("Abonnés", str(data.get("followers", 0)))
+                t.add_row("Email public", data.get("email", "Non renseigné"))
+                t.add_row("Profil URL", data.get("html_url", ""))
+                self.console.print(t)
+            else:
+                self.error("Développeur GitHub introuvable.")
+        except Exception as e: self.error(str(e))
+
+    def module_exif_extractor(self):
+        path = Prompt.ask(f"[{self.theme}]Chemin de l'image (ex: C:/dossier/photo.jpg)[/]")
+        path = path.strip('"\'')
+        if not os.path.exists(path): return self.error("Fichier introuvable.")
+        try:
+            img = Image.open(path)
+            exif_data = img._getexif()
+            if not exif_data: return self.error("Aucune métadonnée EXIF trouvée.")
+            t = Table(title=f"Forensics d'Image (EXIF) : {os.path.basename(path)}", style=self.theme)
+            t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+            for tag_id, value in exif_data.items():
+                tag = TAGS.get(tag_id, tag_id)
+                if tag in ["Make", "Model", "DateTimeOriginal", "Software", "GPSInfo"]:
+                    if tag == "GPSInfo": t.add_row("Localisation GPS", "[bold green]Coordonnées détectées ![/]")
+                    else: t.add_row(str(tag), str(value)[:50])
+            self.console.print(t)
+        except Exception as e: self.error(str(e))
+
+    def module_wifi_forensics(self):
+        if os.name != "nt": return self.error("Module exclusif aux systèmes Windows.")
+        self.console.print(f"[{self.dim_theme}]Extraction des réseaux Wi-Fi locaux...[/]")
+        try:
+            profiles_data = subprocess.check_output('netsh wlan show profiles', shell=True).decode('utf-8', errors="backslashreplace")
+            profiles = [i.split(":")[1][1:-1] for i in profiles_data.split('\n') if "Profil Tous les utilisateurs" in i or "All User Profile" in i]
+            t = Table(title="Récupérateur de Mots de Passe Wi-Fi (Local)", style=self.theme)
+            t.add_column("Réseau (SSID)", style=self.theme); t.add_column("Mot de Passe (Clair)", style="bold red")
+            for p in profiles:
+                try:
+                    results = subprocess.check_output(f'netsh wlan show profile name="{p}" key=clear', shell=True).decode('utf-8', errors="backslashreplace")
+                    passwords = [b.split(":")[1][1:-1] for b in results.split('\n') if "Contenu de la cl" in b or "Key Content" in b]
+                    t.add_row(p, passwords[0] if passwords else "[Ouvert]")
+                except: t.add_row(p, "[Erreur]")
+            self.console.print(t)
+        except Exception as e: self.error(str(e))
+
+    # ================= 4. GÉNÉRATEURS & CRYPTO =================
     def module_password_gen(self):
         length = IntPrompt.ask(f"[{self.theme}]Longueur du mot de passe (défaut 16)[/]", default=16)
         length = max(4, min(length, 128))
         alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+?"
         while True:
             p = "".join(secrets.choice(alphabet) for _ in range(length))
-            if (any(c.islower() for c in p) and any(c.isupper() for c in p) and any(c.isdigit() for c in p)):
-                break
+            if (any(c.islower() for c in p) and any(c.isupper() for c in p) and any(c.isdigit() for c in p)): break
         self.success(f"Mot de passe généré : [bold white]{p}[/]")
 
     def module_email_gen(self):
         size = random.randint(8, 12)
-        letters, chars = string.ascii_lowercase, string.ascii_lowercase + string.digits
-        local = secrets.choice(letters) + "".join(secrets.choice(chars) for _ in range(size - 1))
+        letters, string_pool = string.ascii_lowercase, string.ascii_lowercase + string.digits
+        local = secrets.choice(letters) + "".join(secrets.choice(string_pool) for _ in range(size - 1))
         domain = random.choice(EMAIL_PROVIDERS)
         self.success(f"Email fictif : [bold white]{local}@{domain}[/]")
 
@@ -329,8 +525,7 @@ class EclipseOSINT:
         adj = ["Dark", "Silent", "Crimson", "Shadow", "Toxic", "Frozen", "Cyber", "Ghost", "Neon"]
         noun = ["Wolf", "Demon", "Tiger", "Phantom", "Raven", "Viper", "Hunter", "Ninja", "Reaper"]
         a, b, num = random.choice(adj), random.choice(noun), random.randint(0, 999)
-        p = f"{a}{b}{num}"
-        self.success(f"Pseudo généré : [bold white]{p}[/]")
+        self.success(f"Pseudo généré : [bold white]{a}{b}{num}[/]")
 
     def module_pin_gen(self):
         length = IntPrompt.ask(f"[{self.theme}]Nombre de chiffres (défaut 4)[/]", default=4)
@@ -369,6 +564,22 @@ class EclipseOSINT:
                 t.add_row(name, json.dumps(data, indent=2))
             self.console.print(t)
         except: self.error("Token JWT invalide.")
+
+    def module_crypto_wallet(self):
+        wallet = Prompt.ask(f"[{self.theme}]Adresse portefeuille Bitcoin (BTC)[/]")
+        self.console.print(f"[{self.dim_theme}]Interrogation de la blockchain...[/]")
+        try:
+            r = self.session.get(f"https://blockchain.info/rawaddr/{wallet}", timeout=TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                t = Table(title=f"Crypto Wallet Tracker : {wallet[:8]}...", style=self.theme)
+                t.add_column("Propriété", style=self.theme); t.add_column("Valeur", style=self.text_theme)
+                t.add_row("Nombre de Transactions", str(data.get("n_tx", 0)))
+                t.add_row("Total Reçu (BTC)", str(data.get("total_received", 0) / 100000000))
+                t.add_row("Solde Actuel (BTC)", f"[bold green]{data.get('final_balance', 0) / 100000000}[/]")
+                self.console.print(t)
+            else: self.error("Adresse invalide ou introuvable.")
+        except Exception as e: self.error(str(e))
 
     # ================= PARAMÈTRES & MENUS =================
     def settings_menu(self):
@@ -412,18 +623,28 @@ class EclipseOSINT:
                     ("Minecraft Server OSINT", self.module_minecraft_osint),
                     ("Scanner de Ports", self.module_port_scanner),
                     ("Recherche de Sous-domaines", self.module_subdomains),
-                    ("Phone OSINT", self.module_phone_osint)
+                    ("Phone OSINT", self.module_phone_osint),
+                    ("MAC Address / Vendor Lookup", self.module_mac_lookup)
                 ]),
                 ("2", "👾 Social, Gaming & Fuites", [
                     ("Username Tracker Asynchrone", self.module_username_tracker),
                     ("Discord Snowflake", self.module_discord_snowflake),
+                    ("Discord Invite Recon", self.module_discord_invite),
                     ("Roblox Player Tracker", self.module_roblox_tracker),
+                    ("Minecraft Name History", self.module_minecraft_names),
+                    ("Steam OSINT & VAC Checker", self.module_steam_checker),
+                    ("GTA Online & RP Tracker", self.module_gta_tracker),
+                    ("Analyseur de Webhook Discord", self.module_webhook_analyzer),
                     ("Email Breach Checker (Dark Web)", self.module_breach_checker)
                 ]),
-                ("3", "🛠️ Web & Forensics", [
+                ("3", "🛠️️ Web & Forensics", [
                     ("Détection de Technologies", self.module_tech_detect),
                     ("Unshortener (Analyse de Redirections)", self.module_unshorten),
-                    ("Wayback Machine", self.module_wayback)
+                    ("Wayback Machine", self.module_wayback),
+                    ("Générateur de Google Dorks", self.module_google_dorks),
+                    ("GitHub Developer Radar", self.module_github_radar),
+                    ("Extracteur EXIF (Photo Forensics)", self.module_exif_extractor),
+                    ("Hack Wi-Fi Local (Mots de Passe en clair)", self.module_wifi_forensics)
                 ]),
                 ("4", "🎲 Générateurs & Crypto", [
                     ("Générateur de Mot de Passe", self.module_password_gen),
@@ -432,7 +653,8 @@ class EclipseOSINT:
                     ("Générateur de Code PIN", self.module_pin_gen),
                     ("Identité Fictive (Red Dead Money)", self.module_fake_identity),
                     ("Hash & Base64 Tools", self.module_crypto_tools),
-                    ("Décodeur JWT", self.module_jwt_decode)
+                    ("Décodeur JWT", self.module_jwt_decode),
+                    ("Tracker de Portefeuille Bitcoin", self.module_crypto_wallet)
                 ])
             ]
             
