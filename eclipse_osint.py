@@ -25,7 +25,7 @@ try:
     from PIL.ExifTags import TAGS
 except ImportError:
     print("[!] Dépendances manquantes détectées.")
-    print("[*] Installation automatique en cours, patiente quelques secondes...")
+    print("[*] Installation automatique en cours, patiente quelques secondes…")
     import os, sys
     os.system(f"{sys.executable} -m pip install requests rich phonenumbers pillow")
     print("[+] Installation terminée avec succès ! Relance le script.")
@@ -75,7 +75,7 @@ class EclipseOSINT:
         """
         self.console.print(Text(b, style=self.theme, justify="center"))
         status = f"Agent actif: {self.current_user}" if self.current_user else "Accès restreint"
-        self.console.print(Panel(f"[{self.text_theme}]v4.5 (Tiger Full Arsenal)[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
+        self.console.print(Panel(f"[{self.text_theme}]Eclipse OSINT - Ultra Simple Tool v4.6[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
         print("\n")
 
     def error(self, msg): self.console.print(f"[{self.theme}][!][/] {msg}")
@@ -489,20 +489,48 @@ class EclipseOSINT:
 
     def module_wifi_forensics(self):
         if os.name != "nt": return self.error("Module exclusif aux systèmes Windows.")
-        self.console.print(f"[{self.dim_theme}]Extraction des réseaux Wi-Fi locaux...[/]")
+        self.console.print(f"[{self.dim_theme}]Scan des réseaux Wi-Fi à portée et profils enregistrés...[/]")
         try:
+            # 1. Réseaux à portée dans l'air
+            networks_raw = subprocess.check_output('netsh wlan show networks mode=bssid', shell=True).decode('utf-8', errors="backslashreplace")
+            
+            # 2. Profils enregistrés sur le PC avec leurs mots de passe
             profiles_data = subprocess.check_output('netsh wlan show profiles', shell=True).decode('utf-8', errors="backslashreplace")
             profiles = [i.split(":")[1][1:-1] for i in profiles_data.split('\n') if "Profil Tous les utilisateurs" in i or "All User Profile" in i]
-            t = Table(title="Récupérateur de Mots de Passe Wi-Fi (Local)", style=self.theme)
-            t.add_column("Réseau (SSID)", style=self.theme); t.add_column("Mot de Passe (Clair)", style="bold red")
+            
+            saved_passes = {}
             for p in profiles:
                 try:
-                    results = subprocess.check_output(f'netsh wlan show profile name="{p}" key=clear', shell=True).decode('utf-8', errors="backslashreplace")
-                    passwords = [b.split(":")[1][1:-1] for b in results.split('\n') if "Contenu de la cl" in b or "Key Content" in b]
-                    t.add_row(p, passwords[0] if passwords else "[Ouvert]")
-                except: t.add_row(p, "[Erreur]")
+                    res = subprocess.check_output(f'netsh wlan show profile name="{p}" key=clear', shell=True).decode('utf-8', errors="backslashreplace")
+                    pw = [b.split(":")[1][1:-1] for b in res.split('\n') if "Contenu de la cl" in b or "Key Content" in b]
+                    saved_passes[p] = pw[0] if pw else "[Ouvert / Sans MDP]"
+                except:
+                    saved_passes[p] = "[Erreur lecture]"
+
+            # Analyse des SSIDs à portée
+            ssids_in_range = []
+            for line in networks_raw.split('\n'):
+                if "SSID" in line and ":" in line and "BSSID" not in line:
+                    parts = line.split(":")
+                    if len(parts) > 1:
+                        s_name = parts[1].strip()
+                        if s_name and s_name not in ssids_in_range:
+                            ssids_in_range.append(s_name)
+
+            t = Table(title="Wi-Fi Recon & Local Forensics (In-Range + Saved Passwords)", style=self.theme)
+            t.add_column("Réseau (SSID)", style=self.theme)
+            t.add_column("Statut à portée", justify="center")
+            t.add_column("Mot de Passe (Clair si enregistré)", style="bold red")
+
+            all_ssids = sorted(list(set(list(saved_passes.keys()) + ssids_in_range)))
+            for ssid in all_ssids:
+                in_range = "[bold green]À portée (En ligne)[/]" if ssid in ssids_in_range else "[dim]Hors de portée[/]"
+                password = saved_passes.get(ssid, "[Jamais connecté sur ce PC]")
+                t.add_row(ssid, in_range, password)
+
             self.console.print(t)
-        except Exception as e: self.error(str(e))
+        except Exception as e:
+            self.error(f"Erreur système Wi-Fi : {str(e)}")
 
     # ================= 4. GÉNÉRATEURS & CRYPTO =================
     def module_password_gen(self):
@@ -637,14 +665,14 @@ class EclipseOSINT:
                     ("Analyseur de Webhook Discord", self.module_webhook_analyzer),
                     ("Email Breach Checker (Dark Web)", self.module_breach_checker)
                 ]),
-                ("3", "🛠️️ Web & Forensics", [
+                ("3", "🛠 Web & Forensics", [
                     ("Détection de Technologies", self.module_tech_detect),
                     ("Unshortener (Analyse de Redirections)", self.module_unshorten),
                     ("Wayback Machine", self.module_wayback),
                     ("Générateur de Google Dorks", self.module_google_dorks),
                     ("GitHub Developer Radar", self.module_github_radar),
                     ("Extracteur EXIF (Photo Forensics)", self.module_exif_extractor),
-                    ("Hack Wi-Fi Local (Mots de Passe en clair)", self.module_wifi_forensics)
+                    ("Wi-Fi Recon & Passwords", self.module_wifi_forensics)
                 ]),
                 ("4", "🎲 Générateurs & Crypto", [
                     ("Générateur de Mot de Passe", self.module_password_gen),
