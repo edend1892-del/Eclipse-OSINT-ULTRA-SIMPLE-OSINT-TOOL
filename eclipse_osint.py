@@ -37,6 +37,64 @@ CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".eclipse_config.json")
 TIMEOUT = 5
 EMAIL_PROVIDERS = ["gmail.com", "outlook.com", "yahoo.fr", "proton.me", "icloud.com", "hotmail.com", "live.fr"]
 
+# --- DICTIONNAIRE DE TRADUCTION ---
+TRANSLATIONS = {
+    "fr": {
+        "active_agent": "Agent actif",
+        "restricted_access": "Accès restreint",
+        "login": "Se connecter",
+        "register": "Créer un compte",
+        "quit": "Quitter",
+        "choice": "Choix",
+        "username": "Identifiant",
+        "password": "Mot de passe",
+        "new_username": "Nouvel Identifiant",
+        "new_password": "Nouveau Mot de passe",
+        "access_denied": "Accès refusé.",
+        "account_created": "Compte agent créé !",
+        "error_account": "Erreur (déjà pris ou mdp trop court).",
+        "save_error": "Erreur de sauvegarde.",
+        "connected": "Connexion établie, {} !",
+        "settings": "Paramètres (Thème & Langue)",
+        "settings_title": "Paramètres de l'Interface",
+        "theme_updated": "Thème mis à jour !",
+        "lang_updated": "Langue mise à jour avec succès !",
+        "back": "Retour",
+        "press_enter": "Appuie sur Entrée pour continuer...",
+        "menu_osint": "🌐 OSINT & Réseau",
+        "menu_social": "👾 Social, Gaming & Fuites",
+        "menu_web": "🛠 Web & Forensics",
+        "menu_crypto": "🎲 Générateurs & Crypto"
+    },
+    "en": {
+        "active_agent": "Active Agent",
+        "restricted_access": "Restricted Access",
+        "login": "Login",
+        "register": "Create Account",
+        "quit": "Exit",
+        "choice": "Choice",
+        "username": "Username",
+        "password": "Password",
+        "new_username": "New Username",
+        "new_password": "New Password",
+        "access_denied": "Access denied.",
+        "account_created": "Agent account created!",
+        "error_account": "Error (already taken or password too short).",
+        "save_error": "Saving error.",
+        "connected": "Connection established, {}!",
+        "settings": "Settings (Theme & Language)",
+        "settings_title": "Interface Settings",
+        "theme_updated": "Theme updated!",
+        "lang_updated": "Language successfully updated!",
+        "back": "Back",
+        "press_enter": "Press Enter to continue...",
+        "menu_osint": "🌐 OSINT & Network",
+        "menu_social": "👾 Social, Gaming & Leaks",
+        "menu_web": "🛠 Web & Forensics",
+        "menu_crypto": "🎲 Generators & Crypto"
+    }
+}
+
 class EclipseOSINT:
     def __init__(self):
         self.console = Console()
@@ -47,17 +105,23 @@ class EclipseOSINT:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Eclipse/RDM-Core"})
 
+    def tr(self, key):
+        return TRANSLATIONS.get(self.lang, TRANSLATIONS["fr"]).get(key, key)
+
     def load_config(self):
         try:
             with open(CONFIG_FILE, encoding="utf-8") as f:
-                self.theme = json.load(f).get("theme", "bold cyan")
+                data = json.load(f)
+                self.theme = data.get("theme", "bold cyan")
+                self.lang = data.get("lang", "fr")
         except:
             self.theme = "bold cyan"
+            self.lang = "fr"
 
     def save_config(self):
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump({"theme": self.theme}, f)
+                json.dump({"theme": self.theme, "lang": self.lang}, f)
         except: pass
 
     def clear(self):
@@ -74,14 +138,14 @@ class EclipseOSINT:
 ╚══════╝ ╚═════╝╚══════╝╚═╝╚═╝     ╚══════╝╚══════╝
         """
         self.console.print(Text(b, style=self.theme, justify="center"))
-        status = f"Agent actif: {self.current_user}" if self.current_user else "Accès restreint"
-        self.console.print(Panel(f"[{self.text_theme}]Eclipse OSINT - Ultra Simple Tool v4.6[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
+        status = f"{self.tr('active_agent')}: {self.current_user}" if self.current_user else self.tr("restricted_access")
+        self.console.print(Panel(f"[{self.text_theme}]Eclipse OSINT - Ultra Simple Tool v4.7[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
         print("\n")
 
     def error(self, msg): self.console.print(f"[{self.theme}][!][/] {msg}")
     def success(self, msg): self.console.print(f"[bold green][+][/] {msg}")
 
-    # ================= SYSTÈME DE COMPTES =================
+    # ================= SYSTÈmes DE COMPTES =================
     def hash_pw(self, password, salt=None):
         salt = salt or secrets.token_bytes(16)
         h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 200_000)
@@ -91,12 +155,12 @@ class EclipseOSINT:
         while not self.current_user:
             self.banner()
             t = Table(show_header=False, box=None)
-            t.add_row(f"[{self.theme}][1][/]", "Se connecter")
-            t.add_row(f"[{self.theme}][2][/]", "Créer un compte")
-            t.add_row(f"[{self.theme}][0][/]", "Quitter")
+            t.add_row(f"[{self.theme}][1][/]", self.tr("login"))
+            t.add_row(f"[{self.theme}][2][/]", self.tr("register"))
+            t.add_row(f"[{self.theme}][0][/]", self.tr("quit"))
             self.console.print(t)
             
-            c = Prompt.ask(f"\n[{self.theme}]Choix[/]")
+            c = Prompt.ask(f"\n[{self.theme}]{self.tr('choice')}[/]")
             if c == "0": sys.exit(0)
             
             try:
@@ -104,27 +168,27 @@ class EclipseOSINT:
             except: users = {}
 
             if c == "1":
-                name = Prompt.ask("Identifiant")
-                pw = Prompt.ask("Mot de passe")
+                name = Prompt.ask(self.tr("username"))
+                pw = Prompt.ask(self.tr("password"))
                 u = users.get(name)
                 if u:
                     _, h = self.hash_pw(pw, bytes.fromhex(u["salt"]))
                     if hmac.compare_digest(h, u["hash"]):
                         self.current_user = name
-                        self.success(f"Connexion établie, {name} !"); time.sleep(1)
+                        self.success(self.tr("connected").format(name)); time.sleep(1)
                         return
-                self.error("Accès refusé."); time.sleep(1.5)
+                self.error(self.tr("access_denied")); time.sleep(1.5)
             elif c == "2":
-                name = Prompt.ask("Nouvel Identifiant")
-                pw = Prompt.ask("Nouveau Mot de passe")
+                name = Prompt.ask(self.tr("new_username"))
+                pw = Prompt.ask(self.tr("new_password"))
                 if len(pw) < 6 or name in users:
-                    self.error("Erreur (déjà pris ou mdp trop court)."); time.sleep(1.5); continue
+                    self.error(self.tr("error_account")); time.sleep(1.5); continue
                 salt, h = self.hash_pw(pw)
                 users[name] = {"salt": salt, "hash": h, "created": datetime.now().strftime("%d/%m/%Y")}
                 try:
                     with open(USERS_FILE, "w", encoding="utf-8") as f: json.dump(users, f)
-                    self.success("Compte agent créé !"); time.sleep(1.5)
-                except: self.error("Erreur de sauvegarde."); time.sleep(1.5)
+                    self.success(self.tr("account_created")); time.sleep(1.5)
+                except: self.error(self.tr("save_error")); time.sleep(1.5)
 
     # ================= 1. OSINT & RÉSEAU =================
     def module_ip_info(self):
@@ -491,10 +555,7 @@ class EclipseOSINT:
         if os.name != "nt": return self.error("Module exclusif aux systèmes Windows.")
         self.console.print(f"[{self.dim_theme}]Scan des réseaux Wi-Fi à portée et profils enregistrés...[/]")
         try:
-            # 1. Réseaux à portée dans l'air
             networks_raw = subprocess.check_output('netsh wlan show networks mode=bssid', shell=True).decode('utf-8', errors="backslashreplace")
-            
-            # 2. Profils enregistrés sur le PC avec leurs mots de passe
             profiles_data = subprocess.check_output('netsh wlan show profiles', shell=True).decode('utf-8', errors="backslashreplace")
             profiles = [i.split(":")[1][1:-1] for i in profiles_data.split('\n') if "Profil Tous les utilisateurs" in i or "All User Profile" in i]
             
@@ -507,7 +568,6 @@ class EclipseOSINT:
                 except:
                     saved_passes[p] = "[Erreur lecture]"
 
-            # Analyse des SSIDs à portée
             ssids_in_range = []
             for line in networks_raw.split('\n'):
                 if "SSID" in line and ":" in line and "BSSID" not in line:
@@ -614,17 +674,34 @@ class EclipseOSINT:
         colors = ["bold red", "bold green", "bold blue", "bold cyan", "bold magenta", "bold yellow"]
         while True:
             self.banner()
-            t = Table(title="Paramètres de l'Interface", show_header=True, header_style=self.theme)
-            t.add_column("N°"); t.add_column("Couleur")
-            for i, c in enumerate(colors, 1): t.add_row(str(i), f"[{c}]■ {c.replace('bold ', '').capitalize()}[/]")
-            t.add_row("0", "Retour")
+            t = Table(title=self.tr("settings_title"), show_header=True, header_style=self.theme)
+            t.add_column("N°"); t.add_column("Option")
+            t.add_row("1", "Changer le Thème (Couleurs)")
+            t.add_row("2", f"Changer la Langue (Actuelle : {self.lang.upper()})")
+            t.add_row("0", self.tr("back"))
             self.console.print(t)
             
-            choix = Prompt.ask(f"\n[{self.theme}]Choix[/]")
+            choix = Prompt.ask(f"\n[{self.theme}]{self.tr('choice')}[/]")
             if choix == "0": break
-            if choix.isdigit() and 1 <= int(choix) <= len(colors):
-                self.theme = colors[int(choix)-1]
-                self.save_config(); self.success("Thème mis à jour !")
+            elif choix == "1":
+                while True:
+                    self.banner()
+                    tc = Table(title="Choix du Thème", show_header=True, header_style=self.theme)
+                    tc.add_column("N°"); tc.add_column("Couleur")
+                    for i, c in enumerate(colors, 1): tc.add_row(str(i), f"[{c}]■ {c.replace('bold ', '').capitalize()}[/]")
+                    tc.add_row("0", self.tr("back"))
+                    self.console.print(tc)
+                    c_choix = Prompt.ask(f"\n[{self.theme}]{self.tr('choice')}[/]")
+                    if c_choix == "0": break
+                    if c_choix.isdigit() and 1 <= int(c_choix) <= len(colors):
+                        self.theme = colors[int(c_choix)-1]
+                        self.save_config(); self.success(self.tr("theme_updated")); time.sleep(1)
+                        break
+            elif choix == "2":
+                self.lang = "en" if self.lang == "fr" else "fr"
+                self.save_config()
+                self.success(self.tr("lang_updated"))
+                time.sleep(1)
 
     def execute_menu(self, title, options):
         while True:
@@ -632,21 +709,21 @@ class EclipseOSINT:
             t = Table(title=title, show_header=True, header_style=self.theme, border_style=self.dim_theme)
             t.add_column("N°", justify="center"); t.add_column("Outil")
             for i, (name, _) in enumerate(options, 1): t.add_row(str(i), name)
-            t.add_row("0", "Retour")
+            t.add_row("0", self.tr("back"))
             self.console.print(t)
             
-            c = Prompt.ask(f"\n[{self.theme}]Choix[/]")
+            c = Prompt.ask(f"\n[{self.theme}]{self.tr('choice')}[/]")
             if c == "0": break
             if c.isdigit() and 1 <= int(c) <= len(options):
                 print("\n"); options[int(c)-1][1]()
-                Prompt.ask(f"\n[{self.dim_theme}]Appuie sur Entrée pour continuer...[/]")
+                Prompt.ask(f"\n[{self.dim_theme}]{self.tr('press_enter')}[/]")
 
     def run(self):
         self.auth_screen()
         while True:
             self.banner()
             menus = [
-                ("1", "🌐 OSINT & Réseau", [
+                ("1", self.tr("menu_osint"), [
                     ("IP Intelligence", self.module_ip_info),
                     ("Minecraft Server OSINT", self.module_minecraft_osint),
                     ("Scanner de Ports", self.module_port_scanner),
@@ -654,7 +731,7 @@ class EclipseOSINT:
                     ("Phone OSINT", self.module_phone_osint),
                     ("MAC Address / Vendor Lookup", self.module_mac_lookup)
                 ]),
-                ("2", "👾 Social, Gaming & Fuites", [
+                ("2", self.tr("menu_social"), [
                     ("Username Tracker Asynchrone", self.module_username_tracker),
                     ("Discord Snowflake", self.module_discord_snowflake),
                     ("Discord Invite Recon", self.module_discord_invite),
@@ -665,7 +742,7 @@ class EclipseOSINT:
                     ("Analyseur de Webhook Discord", self.module_webhook_analyzer),
                     ("Email Breach Checker (Dark Web)", self.module_breach_checker)
                 ]),
-                ("3", "🛠 Web & Forensics", [
+                ("3", self.tr("menu_web"), [
                     ("Détection de Technologies", self.module_tech_detect),
                     ("Unshortener (Analyse de Redirections)", self.module_unshorten),
                     ("Wayback Machine", self.module_wayback),
@@ -674,7 +751,7 @@ class EclipseOSINT:
                     ("Extracteur EXIF (Photo Forensics)", self.module_exif_extractor),
                     ("Wi-Fi Recon & Passwords", self.module_wifi_forensics)
                 ]),
-                ("4", "🎲 Générateurs & Crypto", [
+                ("4", self.tr("menu_crypto"), [
                     ("Générateur de Mot de Passe", self.module_password_gen),
                     ("Générateur d'Email Fictif", self.module_email_gen),
                     ("Générateur de Pseudo", self.module_pseudo_gen),
@@ -689,11 +766,11 @@ class EclipseOSINT:
             t = Table(show_header=True, header_style=self.theme, border_style=self.dim_theme)
             t.add_column("N°", justify="center"); t.add_column("Catégorie")
             for num, name, _ in menus: t.add_row(num, name)
-            t.add_row("S", "Paramètres (Couleurs)")
-            t.add_row("0", "Quitter")
+            t.add_row("S", self.tr("settings"))
+            t.add_row("0", self.tr("quit"))
             self.console.print(t)
             
-            c = Prompt.ask(f"\n[{self.theme}]Choix[/]").upper()
+            c = Prompt.ask(f"\n[{self.theme}]{self.tr('choice')}[/]").upper()
             if c == "0": break
             elif c == "S": self.settings_menu()
             else:
