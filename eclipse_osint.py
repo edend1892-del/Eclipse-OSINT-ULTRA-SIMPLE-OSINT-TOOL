@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 # --- SYSTÈME D'AUTO-INSTALLATION ---
 try:
     import requests
+    import urllib3
     import phonenumbers
     from phonenumbers import geocoder, carrier, timezone as ph_tz
     from rich.console import Console
@@ -23,11 +24,14 @@ try:
     from rich.text import Text
     from PIL import Image
     from PIL.ExifTags import TAGS
+    
+    # Désactivation des avertissements de sécurité liés au SSL ignoré
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 except ImportError:
     print("[!] Dépendances manquantes détectées.")
     print("[*] Installation automatique en cours, patiente quelques secondes…")
     import os, sys
-    os.system(f"{sys.executable} -m pip install requests rich phonenumbers pillow")
+    os.system(f"{sys.executable} -m pip install requests urllib3 rich phonenumbers pillow")
     print("[+] Installation terminée avec succès ! Relance le script.")
     sys.exit(0)
 # -----------------------------------
@@ -65,6 +69,7 @@ TRANSLATIONS = {
         "menu_social": "👾 Social, Gaming & Fuites",
         "menu_web": "🛠 Web & Forensics",
         "menu_crypto": "🎲 Générateurs & Crypto",
+        "menu_advanced": "🖥️ Avancé & Dashboard",
         "lang_choice": "Choisissez la langue (fr / en / it):"
     },
     "en": {
@@ -93,6 +98,7 @@ TRANSLATIONS = {
         "menu_social": "👾 Social, Gaming & Leaks",
         "menu_web": "🛠 Web & Forensics",
         "menu_crypto": "🎲 Generators & Crypto",
+        "menu_advanced": "🖥️ Advanced & Dashboard",
         "lang_choice": "Choose language (fr / en / it):"
     },
     "it": {
@@ -121,6 +127,7 @@ TRANSLATIONS = {
         "menu_social": "👾 Social, Gaming & Leak",
         "menu_web": "🛠 Web & Forensics",
         "menu_crypto": "🎲 Generatori & Crypto",
+        "menu_advanced": "🖥️ Avanzate & Dashboard",
         "lang_choice": "Scegli la lingua (fr / en / it):"
     }
 }
@@ -132,8 +139,9 @@ class EclipseOSINT:
         self.text_theme = "bold white"
         self.dim_theme = "bold grey50"
         self.current_user = None
+        self.temp_mail = None
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Eclipse/RDM-Core"})
+        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
 
     def tr(self, key):
         return TRANSLATIONS.get(self.lang, TRANSLATIONS["fr"]).get(key, key)
@@ -169,13 +177,13 @@ class EclipseOSINT:
         """
         self.console.print(Text(b, style=self.theme, justify="center"))
         status = f"{self.tr('active_agent')}: {self.current_user}" if self.current_user else self.tr("restricted_access")
-        self.console.print(Panel(f"[{self.text_theme}]Eclipse OSINT - Ultra Simple Tool v4.7[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
+        self.console.print(Panel(f"[{self.text_theme}]Eclipse OSINT - Ultra Simple Tool v4.9[/] | [{self.theme}]Moteur: Red Dead Money[/] | [{self.dim_theme}]{status}[/]", style=self.theme, expand=False), justify="center")
         print("\n")
 
     def error(self, msg): self.console.print(f"[{self.theme}][!][/] {msg}")
     def success(self, msg): self.console.print(f"[bold green][+][/] {msg}")
 
-    # ================= SYSTÈmes DE COMPTES =================
+    # ================= SYSTÈMES DE COMPTES =================
     def hash_pw(self, password, salt=None):
         salt = salt or secrets.token_bytes(16)
         h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 200_000)
@@ -299,7 +307,7 @@ class EclipseOSINT:
             if r.status_code == 200:
                 t.add_row("Constructeur / Marque", f"[bold green]{r.text}[/]")
             else:
-                t.add_row("Résultat", "[bold red]Constructeur inconnu o format invalide[/]")
+                t.add_row("Résultat", "[bold red]Constructeur inconnu ou format invalide[/]")
             self.console.print(t)
         except Exception as e: self.error(str(e))
 
@@ -330,7 +338,7 @@ class EclipseOSINT:
         t = Table(title=f"Profils trouvés : {u}", style=self.theme)
         t.add_column("Site", style=self.text_theme); t.add_column("Lien", style="cyan")
         for n, l in found: t.add_row(n, l)
-        self.console.print(t) if found else self.error("Aucun profil trovato.")
+        self.console.print(t) if found else self.error("Aucun profil trouvé.")
 
     def module_discord_snowflake(self):
         s = Prompt.ask(f"[{self.theme}]ID Discord[/]")
@@ -534,7 +542,7 @@ class EclipseOSINT:
 
     def module_google_dorks(self):
         cible = Prompt.ask(f"[{self.theme}]Nom de domaine ou Cible (ex: tesla.com)[/]")
-        t = Table(title=f"Générateur Google Dorks : {cible}", style=self.theme)
+        t = Table(title=f"Générateur de Google Dorks : {cible}", style=self.theme)
         t.add_column("Type de Fichiers ciblé", style=self.theme); t.add_column("Requête Google (à copier)", style="cyan")
         t.add_row("Fichiers PDF / Docs", f"site:{cible} ext:pdf OR ext:doc OR ext:txt")
         t.add_row("Bases de données SQL", f"site:{cible} intext:\"sql dump\" OR ext:sql")
@@ -607,7 +615,7 @@ class EclipseOSINT:
                         if s_name and s_name not in ssids_in_range:
                             ssids_in_range.append(s_name)
 
-            t = Table(title="Wi-Fi Recon & Local Forensics (In-Range + Saved Passwords)", style=self.theme)
+            t = Table(title="Wi-Fi Recon & Passwords (In-Range + Saved Passwords)", style=self.theme)
             t.add_column("Réseau (SSID)", style=self.theme)
             t.add_column("Statut à portée", justify="center")
             t.add_column("Mot de Passe (Clair si enregistré)", style="bold red")
@@ -621,27 +629,6 @@ class EclipseOSINT:
             self.console.print(t)
         except Exception as e:
             self.error(f"Erreur système Wi-Fi : {str(e)}")
-
-    def module_wifi_bruteforce(self):
-        ssid = Prompt.ask(f"[{self.theme}]SSID cible (Nom du Wi-Fi)[/]")
-        wordlist_path = Prompt.ask(f"[{self.theme}]Chemin de la wordlist[/]")
-        if not os.path.exists(wordlist_path):
-            return self.error("Fichier wordlist introuvable.")
-        
-        self.console.print(f"[{self.dim_theme}]Lancement de la brute-force sur {ssid}...[/]")
-        self.console.print(f"[{self.dim_theme}]Attention: Cette opération peut créer plusieurs profils netsh.[/]")
-        
-        try:
-            with open(wordlist_path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    pw = line.strip()
-                    if not pw: continue
-                    # Utilisation de netsh pour tenter la connexion
-                    subprocess.run(f'netsh wlan connect name="{ssid}" key="{pw}"', shell=True, capture_output=True)
-            
-            self.success("Fin de la tentative de brute-force.")
-        except Exception as e:
-            self.error(f"Erreur brute-force : {str(e)}")
 
     def module_wordlist_gen(self):
         self.console.print(f"[{self.dim_theme}]Générateur de Wordlist Inteligente[/]")
@@ -667,7 +654,7 @@ class EclipseOSINT:
         except Exception as e:
             self.error(f"Erreur lors de la génération : {str(e)}")
 
-    # ================= 4. GÉNÉRATEURS & CRYPTO =================
+    # ================= 4. GÉNÉRATEURS, CRYPTO & MAIL =================
     def module_password_gen(self):
         length = IntPrompt.ask(f"[{self.theme}]Longueur du mot de passe (défaut 16)[/]", default=16)
         length = max(4, min(length, 128))
@@ -677,12 +664,91 @@ class EclipseOSINT:
             if (any(c.islower() for c in p) and any(c.isupper() for c in p) and any(c.isdigit() for c in p)): break
         self.success(f"Mot de passe généré : [bold white]{p}[/]")
 
-    def module_email_gen(self):
-        size = random.randint(8, 12)
-        letters, string_pool = string.ascii_lowercase, string.ascii_lowercase + string.digits
-        local = secrets.choice(letters) + "".join(secrets.choice(string_pool) for _ in range(size - 1))
-        domain = random.choice(EMAIL_PROVIDERS)
-        self.success(f"Email fictif : [bold white]{local}@{domain}[/]")
+    def module_temp_mail(self):
+        while True:
+            self.console.clear()
+            self.console.print(Panel(f"[{self.theme}]Boîte Mail Jetable (Propulsé par Mail.tm)[/]", style=self.theme, expand=False))
+            current = self.temp_mail if self.temp_mail else "Aucune adresse active"
+            self.console.print(f"Mail actuel : [bold green]{current}[/]\n")
+            
+            t = Table(show_header=False, box=None)
+            t.add_row(f"[{self.theme}]1[/]", "Générer une nouvelle adresse mail")
+            t.add_row(f"[{self.theme}]2[/]", "Consulter la boîte de réception")
+            t.add_row(f"[{self.theme}]0[/]", "Retour au menu précédent")
+            self.console.print(t)
+            
+            c = Prompt.ask(f"\n[{self.theme}]Choix[/]")
+            if c == "0": 
+                break
+            elif c == "1":
+                try:
+                    dom_req = self.session.get("https://api.mail.tm/domains", timeout=TIMEOUT)
+                    if dom_req.status_code == 200:
+                        domain = dom_req.json()['hydra:member'][0]['domain']
+                        username = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(10))
+                        password = secrets.token_hex(8)
+                        email = f"{username}@{domain}"
+                        
+                        create_req = self.session.post("https://api.mail.tm/accounts", json={"address": email, "password": password}, timeout=TIMEOUT)
+                        if create_req.status_code in [200, 201]:
+                            token_req = self.session.post("https://api.mail.tm/token", json={"address": email, "password": password}, timeout=TIMEOUT)
+                            if token_req.status_code == 200:
+                                token = token_req.json().get('token')
+                                self.temp_mail = email
+                                self.mail_token = token
+                                self.success(f"Nouvelle adresse générée : [bold white]{self.temp_mail}[/]")
+                                self.console.print("[dim]Tu peux t'inscrire sur n'importe quel site avec cette adresse.[/]")
+                            else:
+                                self.error("Erreur lors de l'authentification du mail.")
+                        else:
+                            self.error("Erreur lors de la création du compte mail.")
+                    else:
+                        self.error("Service de mail momentanément indisponible.")
+                except Exception as e:
+                    self.error(f"Erreur : {e}")
+                Prompt.ask(f"\n[{self.dim_theme}]Appuie sur Entrée pour continuer...[/]", default="")
+            
+            elif c == "2":
+                if not self.temp_mail or not hasattr(self, 'mail_token'):
+                    self.error("Génère d'abord une adresse (Option 1) avant de lire tes mails.")
+                    Prompt.ask(f"\n[{self.dim_theme}]Appuie sur Entrée pour continuer...[/]", default="")
+                    continue
+                
+                try:
+                    headers = {"Authorization": f"Bearer {self.mail_token}"}
+                    msgs_req = self.session.get("https://api.mail.tm/messages", headers=headers, timeout=TIMEOUT)
+                    if msgs_req.status_code == 200:
+                        messages = msgs_req.json().get('hydra:member', [])
+                        if not messages:
+                            self.console.print("\n[dim]Ta boîte de réception est vide pour le moment...[/]")
+                        else:
+                            t_mail = Table(title=f"Boîte de Réception : {self.temp_mail}", style=self.theme)
+                            t_mail.add_column("ID", style=self.theme)
+                            t_mail.add_column("Expéditeur", style="cyan")
+                            t_mail.add_column("Sujet", style=self.text_theme)
+                            t_mail.add_column("Date", style="dim")
+                            for msg in messages:
+                                t_mail.add_row(msg['id'], msg['from']['address'], msg['subject'], msg['createdAt'])
+                            self.console.print("\n")
+                            self.console.print(t_mail)
+                            
+                            read_id = Prompt.ask(f"\n[{self.theme}]Entre l'ID du message à lire (ou 0 pour annuler)[/]")
+                            if read_id != "0":
+                                msg_req = self.session.get(f"https://api.mail.tm/messages/{read_id}", headers=headers, timeout=TIMEOUT)
+                                if msg_req.status_code == 200:
+                                    msg_data = msg_req.json()
+                                    self.console.print("\n" + "=" * 50)
+                                    self.console.print(f"[bold {self.theme}]De :[/] {msg_data['from']['address']}")
+                                    self.console.print(f"[bold {self.theme}]Sujet :[/] {msg_data['subject']}")
+                                    self.console.print("-" * 50)
+                                    self.console.print(msg_data.get('text', 'Aucun contenu texte détecté.'))
+                                    self.console.print("=" * 50)
+                    else:
+                        self.error("Erreur lors de la récupération des messages.")
+                except Exception as e:
+                    self.error(f"Erreur de lecture : {e}")
+                
+                Prompt.ask(f"\n[{self.dim_theme}]Appuie sur Entrée pour continuer...[/]", default="")
 
     def module_pseudo_gen(self):
         adj = ["Dark", "Silent", "Crimson", "Shadow", "Toxic", "Frozen", "Cyber", "Ghost", "Neon"]
@@ -744,57 +810,101 @@ class EclipseOSINT:
             else: self.error("Adresse invalide ou introuvable.")
         except Exception as e: self.error(str(e))
 
-    def module_wifi_bruteforce(self):
-        ssid = Prompt.ask(f"[{self.theme}]SSID cible (Nom du Wi-Fi)[/]")
-        wordlist_path = Prompt.ask(f"[{self.theme}]Chemin de la wordlist[/]")
-        if not os.path.exists(wordlist_path):
-            return self.error("Fichier wordlist introuvable.")
+    # ================= 5. OSINT AVANCÉ =================
+    def module_yt_twitch_osint(self):
+        target = Prompt.ask(f"[{self.theme}]Pseudo / Nom de chaîne cible[/]")
+        self.console.print(f"[{self.dim_theme}]Recherche d'informations publiques sur les plateformes...[/]")
         
-        self.console.print(f"[{self.dim_theme}]Lancement de la brute-force sur {ssid}...[/]")
-        self.console.print(f"[{self.dim_theme}]Attention: Cette opération peut créer plusieurs profils netsh.[/]")
-        
-        try:
-            with open(wordlist_path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    pw = line.strip()
-                    if not pw: continue
-                    # Utilisation de netsh pour tenter la connexion
-                    subprocess.run(f'netsh wlan connect name="{ssid}" key="{pw}"', shell=True, capture_output=True)
-            
-            self.success("Fin de la tentative de brute-force.")
-        except Exception as e:
-            self.error(f"Erreur brute-force : {str(e)}")
+        t = Table(title=f"OSINT Plateformes Vidéo : {target}", style=self.theme)
+        t.add_column("Plateforme", style=self.theme)
+        t.add_column("Lien", style="cyan")
+        t.add_column("Statut", style=self.text_theme)
 
-    def module_wordlist_gen(self):
-        self.console.print(f"[{self.dim_theme}]Générateur de Wordlist Inteligente[/]")
-        prefix = Prompt.ask(f"[{self.theme}]Préfixe (ex: admin, wifi, casa)[/]", default="wifi")
-        suffix = Prompt.ask(f"[{self.theme}]Suffixe (ex: 123, 2024, !)[/]", default="2024")
-        length = IntPrompt.ask(f"[{self.theme}]Nombre de variantes (défaut 50)[/]", default=50)
-        
-        output_path = os.path.join(os.path.expanduser("~"), ".smart_wordlist.txt")
+        try:
+            r_twitch = self.session.get(f"https://www.twitch.tv/{target}", timeout=TIMEOUT)
+            if r_twitch.status_code == 200 and "is not available" not in r_twitch.text.lower():
+                t.add_row("Twitch", f"https://www.twitch.tv/{target}", "[bold green]Trouvé[/]")
+            else:
+                t.add_row("Twitch", "-", "[dim]Introuvable[/]")
+        except:
+            t.add_row("Twitch", "-", "[red]Erreur de connexion[/]")
+
+        try:
+            r_yt = self.session.get(f"https://www.youtube.com/@{target}", timeout=TIMEOUT)
+            if r_yt.status_code == 200 and "404 Not Found" not in r_yt.text:
+                t.add_row("YouTube", f"https://www.youtube.com/@{target}", "[bold green]Trouvé[/]")
+            else:
+                t.add_row("YouTube", "-", "[dim]Introuvable[/]")
+        except:
+            t.add_row("YouTube", "-", "[red]Erreur de connexion[/]")
+
+        self.console.print(t)
+
+    # ================= 6. DASHBOARD EN DIRECT =================
+    def module_live_dashboard(self):
+        try:
+            from rich.live import Live
+            from rich.layout import Layout
+            from rich.align import Align
+        except ImportError:
+            return self.error("Module 'rich' non chargé correctement.")
+
+        layout = Layout()
+        layout.split_column(
+            Layout(name="header", size=3),
+            Layout(name="main")
+        )
+        layout["main"].split_row(
+            Layout(name="left"),
+            Layout(name="right")
+        )
+
+        def generate_dashboard():
+            current_time = datetime.now().strftime("%H:%M:%S")
+            header_text = f"[bold {self.theme}]ECLIPSE OSINT - LIVE DASHBOARD[/] | Heure: {current_time}\n[bold red]Appuie sur 'Q' pour quitter[/]"
+            header = Panel(Align.center(header_text), style=self.theme)
+            
+            sys_info = f"Agent Actif: {self.current_user}\nLangue: {self.lang.upper()}\nThème: {self.theme}\nOS: {os.name}\nModules chargés: Opérationnels"
+            left_panel = Panel(sys_info, title="[bold]Informations Système[/]", border_style="cyan")
+            
+            net_info = "[dim]En attente de tâches...[/]\n[green]Moteur Red Dead Money : Actif[/]"
+            right_panel = Panel(net_info, title="[bold]Activité & Moteur[/]", border_style="green")
+            
+            layout["header"].update(header)
+            layout["left"].update(left_panel)
+            layout["right"].update(right_panel)
+            return layout
+
+        self.console.clear()
+        time.sleep(0.5)
         
         try:
-            with open(output_path, "w", encoding="utf-8") as f:
-                for i in range(length):
-                    f.write(f"{prefix}{i}{suffix}\n")
-                    f.write(f"{prefix}{suffix}{i}\n")
-                    f.write(f"{i}{prefix}{suffix}\n")
-                
-                classiques = ["password", "12345678", "admin123", "welcome1", "qwerty", "letmein1"]
-                for c in classiques:
-                    f.write(f"{prefix}{c}\n")
-                    f.write(f"{c}{suffix}\n")
+            if os.name == 'nt':
+                import msvcrt
+
+            with Live(generate_dashboard(), refresh_per_second=4, screen=True) as live:
+                while True:
+                    live.update(generate_dashboard())
+                    time.sleep(0.25)
+                    
+                    if os.name == 'nt' and msvcrt.kbhit():
+                        key = msvcrt.getch()
+                        if key.lower() == b'q':
+                            break
+
+        except KeyboardInterrupt:
+            pass
             
-            self.success(f"Wordlist générée avec succès dans :\n[{self.theme}]{output_path}[/]")
-        except Exception as e:
-            self.error(f"Erreur lors de la génération : {str(e)}")
+        self.console.clear()
+        self.console.print(f"[{self.theme}]Fermeture du tableau de bord.[/]")
+        time.sleep(0.5)
 
     # ================= PARAMÈTRES & MENUS =================
     def settings_menu(self):
         colors = ["bold red", "bold green", "bold blue", "bold cyan", "bold magenta", "bold yellow"]
         while True:
             self.banner()
-            t = Table(title=self.tr("settings_title"), show_header=True, header_style=self.theme)
+            t = Table(show_header=True, header_style=self.theme)
             t.add_column("N°"); t.add_column("Option")
             t.add_row("1", "Changer le Thème (Couleurs)")
             t.add_row("2", f"Changer la Langue (Actuelle : {self.lang.upper()})")
@@ -834,14 +944,17 @@ class EclipseOSINT:
             t.add_row("0", self.tr("back"))
             self.console.print(t)
             
-            c = Prompt.ask(f"\n[{self.theme}]{self.tr('choice')}[/]")
+            c = Prompt.ask(f"\n[{self.theme}]{self.tr('choice')}[/]").upper()
             if c == "0": break
             if c.isdigit() and 1 <= int(c) <= len(options):
-                print("\n"); options[int(c)-1][1]()
-                Prompt.ask(f"\n[{self.dim_theme}]{self.tr('press_enter')}[/]")
+                print("\n")
+                options[int(c)-1][1]()
+                Prompt.ask(f"\n[{self.dim_theme}]{self.tr('press_enter')}[/]", default="")
+            else:
+                self.error("Choix invalide.")
+                time.sleep(1)
 
     def run(self):
-        self.auth_screen()
         while True:
             self.banner()
             menus = [
@@ -872,22 +985,25 @@ class EclipseOSINT:
                     ("GitHub Developer Radar", self.module_github_radar),
                     ("Extracteur EXIF (Photo Forensics)", self.module_exif_extractor),
                     ("Wi-Fi Recon & Passwords", self.module_wifi_forensics),
-                    ("Wi-Fi Brute-Force", self.module_wifi_bruteforce),
                     ("Générateur de Wordlist", self.module_wordlist_gen)
                 ]),
                 ("4", self.tr("menu_crypto"), [
                     ("Générateur de Mot de Passe", self.module_password_gen),
-                    ("Générateur d'Email Fictif", self.module_email_gen),
+                    ("Boîte Mail Jetable (Réception active)", self.module_temp_mail),
                     ("Générateur de Pseudo", self.module_pseudo_gen),
                     ("Générateur de Code PIN", self.module_pin_gen),
                     ("Identité Fictive (Red Dead Money)", self.module_fake_identity),
                     ("Hash & Base64 Tools", self.module_crypto_tools),
                     ("Décodeur JWT", self.module_jwt_decode),
                     ("Tracker de Portefeuille Bitcoin", self.module_crypto_wallet)
+                ]),
+                ("5", self.tr("menu_advanced"), [
+                    ("OSINT YouTube & Twitch", self.module_yt_twitch_osint),
+                    ("Tableau de Bord Live", self.module_live_dashboard)
                 ])
             ]
             
-            t = Table(show_header=True, header_style=self.theme, border_style=self.dim_theme)
+            t = Table(show_header=True, header_style=self.theme)
             t.add_column("N°", justify="center"); t.add_column("Catégorie")
             for num, name, _ in menus: t.add_row(num, name)
             t.add_row("S", self.tr("settings"))
